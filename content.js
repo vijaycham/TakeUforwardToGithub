@@ -197,6 +197,6 @@ function initSubmitButtonMonitor() {
     }
   });
 }
-
+// Call initialization methods immediately
 injectInterceptor();
 initSubmitButtonMonitor();
