@@ -1,14 +1,20 @@
 {
-  "name": "TakeUForwardToGithub",
-  "version": "0.10",
-  "manifest_version": 3,
-  "description": "Auto push takeuforward.org solutions to your github repo",
-  "permissions": ["storage", "scripting", "activeTab", "tabs", "webRequest"],
-  "icons": {
-    "16": "assets/16.png",
-    "48": "assets/48.png",
-    "128": "assets/128.png"
-  },
+    "name": "TakeUForwardToGithub",
+    "version": "0.20",
+    "manifest_version": 3,
+    "description": "Auto push takeuforward.org solutions to your github repo",
+    "permissions": [
+        "storage",
+        "scripting",
+        "activeTab",
+        "tabs",
+        "webRequest"
+      ],
+      "icons": {
+        "16": "assets/16.png",
+        "48": "assets/48.png",
+        "128": "assets/128.png"
+      },
 
   "web_accessible_resources": [
     {
@@ -17,21 +23,22 @@
     }
   ],
 
-  "host_permissions": [
-    "https://takeuforward.org/*",
-    "https://api.github.com/*",
-    "*://*.takeuforward.org/*"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["https://takeuforward.org/*"],
-      "js": ["content.js"]
+      "host_permissions": [
+        "https://takeuforward.org/*",
+        "https://api.github.com/*",
+        "*://*.takeuforward.org/*"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["https://takeuforward.org/*"],
+        "js": ["content.js"],
+        "run_at": "document_end"
+      }
+    ],
+    "action": {
+      "default_title": "TakeUForwardToGithub"
     }
-  ],
-  "action": {
-    "default_title": "TakeUForwardToGithub"
   }
-}
