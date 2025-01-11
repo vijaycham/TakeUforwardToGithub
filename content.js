@@ -1,44 +1,16 @@
-require("dotenv").config();
-
-let QUES = "";
-let DESCRIPTION = "";
-//udca
-const pollForQuestion = setInterval(() => {
-  const headingElem = document.querySelector(
-    ".text-2xl.font-bold.text-new_primary.dark\\:text-new_dark_primary.relative"
-  );
-  const paragraphElem = document.querySelector("p.mt-6");
-  if (headingElem && paragraphElem) {
-    QUES = headingElem.textContent || "";
-    DESCRIPTION = paragraphElem.textContent || "";
-    clearInterval(pollForQuestion);
-  }
-}, 2000);
-
-const storedData = localStorage.getItem("storedData");
-const parsedData = JSON.parse(storedData || "[]");
-let PROBLEM_SLUG = "";
-let SELECTED_LANGUAGE = "";
-let PUBLIC_CODE = "";
-
-if (parsedData.length > 0) {
-  const { problemSlug, selectedLanguage, publicCodeOfSelected } =
-    parsedData.at(-1);
-  PROBLEM_SLUG = problemSlug;
-  SELECTED_LANGUAGE = selectedLanguage;
-  PUBLIC_CODE = publicCodeOfSelected;
-}
-
+// GitHub Configuration
 const GITHUB_CONFIG = {
-  token: process.env.GITHUB_TOKEN,
-  owner: process.env.GITHUB_OWNER,
-  repo: process.env.GITHUB_REPO,
-  branch: process.env.GITHUB_BRANCH,
+  token: "",
+  owner: "vijaycham", // Update with your GitHub username
+  repo: "Data-Structure-and-Algorithms", // Update with your repo name
+  branch: "main", // Branch to push changes
 };
 
+// Initialize GitHub Config (prompt only if token is missing)
 const initGitHubConfig = () => {
   GITHUB_CONFIG.token =
-    localStorage.getItem("github_token") || prompt("Enter your GitHub token:");
+    localStorage.getItem("github_token") ||
+    prompt("Enter your GitHub token (it will be stored securely):");
   GITHUB_CONFIG.owner =
     localStorage.getItem("github_owner") ||
     prompt("Enter your GitHub username:");
@@ -46,157 +18,106 @@ const initGitHubConfig = () => {
     localStorage.getItem("github_repo") ||
     prompt("Enter your repository name:");
 
+  // Save configurations in localStorage
   localStorage.setItem("github_token", GITHUB_CONFIG.token);
   localStorage.setItem("github_owner", GITHUB_CONFIG.owner);
   localStorage.setItem("github_repo", GITHUB_CONFIG.repo);
 };
 
+// Save Problem Details
+let QUES = "";
+let DESCRIPTION = "";
+
+// Poll for problem details (with a timeout to avoid infinite loops)
+const pollForQuestion = setInterval(() => {
+  const headingElem = document.querySelector(".text-2xl.font-bold");
+  const paragraphElem = document.querySelector("p.mt-6");
+  if (headingElem && paragraphElem) {
+    QUES = headingElem.textContent || "";
+    DESCRIPTION = paragraphElem.textContent || "";
+    clearInterval(pollForQuestion); // Stop polling
+  }
+}, 2000);
+
+// GitHub API: Create or Update File
 const createOrUpdateFile = async (filePath, content, commitMessage) => {
   try {
-    console.log("Creating/updating file...");
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`,
-      {
-        headers: {
-          Authorization: `token ${GITHUB_CONFIG.token}`,
-          Accept: "application/vnd.github.v3+json",
-        },
-      }
-    );
+    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`;
+    const headers = {
+      Authorization: `token ${GITHUB_CONFIG.token}`,
+      Accept: "application/vnd.github.v3+json",
+    };
 
+    // Check if file exists
+    const response = await fetch(url, { headers });
     const payload = {
       message: commitMessage,
-      content: btoa(content),
+      content: btoa(content), // Base64 encode the content
       branch: GITHUB_CONFIG.branch,
     };
 
+    // If file exists, include the SHA for updating
     if (response.ok) {
       const data = await response.json();
       payload.sha = data.sha;
     }
 
-    const updateResponse = await fetch(
-      `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${filePath}`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `token ${GITHUB_CONFIG.token}`,
-          Accept: "application/vnd.github.v3+json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+    // Create or update file
+    const result = await fetch(url, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(payload),
+    });
 
-    if (!updateResponse.ok) {
-      throw new Error(`GitHub API responded with ${updateResponse.status}`);
+    if (!result.ok) {
+      throw new Error(`GitHub API error: ${result.status}`);
     }
+
     console.log("File successfully created/updated!");
     return true;
   } catch (error) {
-    console.error("Error creating/updating file:", error);
+    console.error("Error in createOrUpdateFile:", error);
     return false;
   }
 };
 
+// Handle Submission Push
 const handleSubmissionPush = async (Sdata) => {
   try {
-    console.log("Handling submission push...");
     if (!Sdata.success) return false;
     if (!GITHUB_CONFIG.token) initGitHubConfig();
 
+    // Commit message and file content
     const commitMessage =
-      `Solved: ${QUES}\n\n` +
-      `Success: ${Sdata.success}\n` +
-      `Test Cases: ${Sdata.totalTestCases}\n` +
-      `Time: ${Sdata.averageTime}\n` +
-      `Memory: ${Sdata.averageMemory}`;
+      `Solved: ${QUES}\n\n` + `Stats:\nSuccess: ${Sdata.success}`;
+    const fileContent = `/*\nProblem: ${QUES}\nDescription:\n${DESCRIPTION}\n*/\n\n${PUBLIC_CODE}`;
+    const filePath = `solutions/${PROBLEM_SLUG}/solution.${SELECTED_LANGUAGE}`;
 
-    const fileContent = `/*
-Problem: ${QUES}
-Problem Link: ${window.location.href}
-
-Description:
-${DESCRIPTION}
-
-Stats:
-- Success: ${Sdata.success}
-- Test Cases: ${Sdata.totalTestCases}
-- Time: ${Sdata.averageTime}
-- Memory: ${Sdata.averageMemory}
-*/
-
-${PUBLIC_CODE}`;
-
-    const urlPath = window.location.pathname
-      .replace("/plus/", "") // Remove 'plus'
-      .replace("/data-structures-and-algorithm/", "") // Remove DSA prefix
-      .replace("/submissions", "") // Remove submissions
-      .split("/")
-      .filter(
-        (part) => part.length > 0 && part !== "data-structures-and-algorithm"
-      ); // Remove
-
-    // Create directory path from URL parts
-    const dirPath = urlPath.join("/");
-
-    const fileExtension =
-      SELECTED_LANGUAGE === "cpp"
-        ? "cpp"
-        : SELECTED_LANGUAGE === "python"
-        ? "py"
-        : SELECTED_LANGUAGE === "javascript"
-        ? "js"
-        : "txt";
-
-    const filePath = `${dirPath}/solution.${fileExtension}`;
-    const success = await createOrUpdateFile(
-      filePath,
-      fileContent,
-      commitMessage
-    );
-
-    if (success) {
-      console.log("Successfully pushed to GitHub!");
-    } else {
-      console.error("Failed to push to GitHub");
-    }
-    return success;
+    return await createOrUpdateFile(filePath, fileContent, commitMessage);
   } catch (error) {
-    console.error("Error in GitHub push:", error);
+    console.error("Error in handleSubmissionPush:", error);
     return false;
   }
 };
 
+// Interceptor Injection
 const injectInterceptor = () => {
   const script = document.createElement("script");
   script.src = chrome.runtime.getURL("interceptor.js");
-  (document.head || document.documentElement).appendChild(script);
+  document.head.appendChild(script);
   script.onload = () => script.remove();
 };
 
+// Monitor Submission Events
 window.addEventListener("message", async (event) => {
-  console.log("Received submission response");
   if (event.data.type === "SUBMISSION_RESPONSE") {
     const submissionData = event.data.payload;
-    if (submissionData.success === true) {
+    if (submissionData.success) {
       await handleSubmissionPush(submissionData);
     }
   }
 });
 
-function initSubmitButtonMonitor() {
-  document.addEventListener("DOMContentLoaded", () => {
-    const submitBtn = document.querySelector(
-      'button[data-tooltip-id="Submit"]'
-    );
-    if (submitBtn) {
-      submitBtn.addEventListener("click", () => {
-        console.log("Submit button clicked");
-      });
-    }
-  });
-}
-// Call initialization methods immediately
+// Initialize Features
 injectInterceptor();
-initSubmitButtonMonitor();
+initGitHubConfig();
